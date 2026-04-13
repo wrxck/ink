@@ -1,3 +1,4 @@
+name: ink-docs
 services:
   docs:
     build:
