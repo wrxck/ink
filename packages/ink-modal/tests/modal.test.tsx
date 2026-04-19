@@ -1,6 +1,7 @@
 import React from 'react';
+
 import { render } from 'ink-testing-library';
-import { Text } from 'ink';
+import { Box, Text } from 'ink';
 import { describe, it, expect } from 'vitest';
 
 import { Modal } from '../src/modal.js';
@@ -66,5 +67,51 @@ describe('ink-modal', () => {
     const frame = lastFrame()!;
     expect(frame).toContain('Red border');
     expect(frame).toContain('Colored');
+  });
+
+  it('accepts a footer that contains a Box (no Box-in-Text crash)', () => {
+    expect(() =>
+      render(
+        <Modal
+          visible={true}
+          footer={
+            <Box gap={2}>
+              <Text><Text bold color="green">y</Text> confirm</Text>
+              <Text><Text bold color="red">n</Text> cancel</Text>
+            </Box>
+          }
+        >
+          <Text>Are you sure?</Text>
+        </Modal>,
+      ),
+    ).not.toThrow();
+  });
+
+  it('renders a composite footer verbatim', () => {
+    const { lastFrame } = render(
+      <Modal
+        visible={true}
+        footer={
+          <Box>
+            <Text>left</Text>
+            <Text>right</Text>
+          </Box>
+        }
+      >
+        <Text>Body</Text>
+      </Modal>,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain('left');
+    expect(frame).toContain('right');
+  });
+
+  it('still wraps string footers in Text for dim styling', () => {
+    const { lastFrame } = render(
+      <Modal visible={true} footer="press y">
+        <Text>Body</Text>
+      </Modal>,
+    );
+    expect(lastFrame()).toContain('press y');
   });
 });
