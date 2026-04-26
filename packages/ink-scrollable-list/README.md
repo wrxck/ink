@@ -42,6 +42,13 @@ function MyList() {
 | `renderItem` | `(item, selected, index) => ReactNode` | Render function per item |
 | `emptyText` | `string?` | Text shown when items is empty |
 
+## Changelog
+
+### 0.1.1
+
+- Fixed scroll flicker when navigating — uses `React.memo` rows and stable `renderItem` refs to prevent unnecessary re-renders during scroll offset changes.
+- Moved `prevOffsetRef` mutation outside `useMemo` to avoid React anti-pattern.
+
 ## Requirements
 
 - Ink >= 5.0.0
