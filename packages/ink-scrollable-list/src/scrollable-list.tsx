@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, memo } from 'react';
+import React, { useMemo, useRef, memo } from 'react';
 
 import { Box, Text } from 'ink';
 
@@ -17,9 +17,21 @@ interface MemoRowProps<T> {
   renderItem: (item: T, selected: boolean, index: number) => React.ReactNode;
 }
 
+// custom comparator: ignore renderItem identity (consumers almost always
+// pass an inline arrow function, so referential equality is impossible).
+// treat renderItem as a pure function of (item, selected, index) — if those
+// match, the rendered output is the same.
+function rowsEqual<T>(prev: MemoRowProps<T>, next: MemoRowProps<T>): boolean {
+  return (
+    prev.item === next.item &&
+    prev.selected === next.selected &&
+    prev.index === next.index
+  );
+}
+
 const MemoRow = memo(function MemoRow<T>({ item, selected, index, renderItem }: MemoRowProps<T>) {
   return <Box>{renderItem(item, selected, index)}</Box>;
-}) as <T>(props: MemoRowProps<T>) => React.JSX.Element;
+}, rowsEqual) as <T>(props: MemoRowProps<T>) => React.JSX.Element;
 
 export function ScrollableList<T>({
   items,
@@ -57,11 +69,8 @@ export function ScrollableList<T>({
     };
   }, [items, selectedIndex, maxVisible]);
 
-  // Update ref outside useMemo to avoid mutation during render
+  // update ref outside useMemo to avoid mutation during render
   prevOffsetRef.current = scrollOffset;
-
-  // Stable renderItem reference for memo comparison
-  const stableRenderItem = useCallback(renderItem, [renderItem]);
 
   if (items.length === 0) {
     return <Text dimColor>{emptyText}</Text>;
@@ -80,7 +89,7 @@ export function ScrollableList<T>({
             item={item}
             selected={actualIndex === selectedIndex}
             index={actualIndex}
-            renderItem={stableRenderItem}
+            renderItem={renderItem}
           />
         );
       })}
