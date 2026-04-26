@@ -76,6 +76,12 @@ export default defineConfig({
             { label: 'Keybinding Help', slug: 'components/keybinding-help' },
           ],
         },
+        {
+          label: 'Hooks',
+          items: [
+            { label: 'Stable State', slug: 'components/stable-state' },
+          ],
+        },
       ],
     }),
   ],
