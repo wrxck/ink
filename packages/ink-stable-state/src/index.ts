@@ -17,7 +17,7 @@
  * drop-in replacement.
  */
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 
 export type Equals<T> = (a: T, b: T) => boolean;
 
@@ -53,7 +53,11 @@ export function useStableState<T>(
   const [value, setValueRaw] = useState<T>(initial);
   const lastRef = useRef<T>(initial);
   const eqRef = useRef(isEqual);
-  eqRef.current = isEqual;
+  // Track the latest isEqual via effect (not at render-time) so we don't
+  // mutate refs during render — keeps StrictMode happy.
+  useEffect(() => {
+    eqRef.current = isEqual;
+  }, [isEqual]);
 
   const setValue = useCallback((next: T | ((prev: T) => T)) => {
     setValueRaw(prev => {

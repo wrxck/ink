@@ -140,6 +140,58 @@ describe('useStableState', () => {
     expect(parseInt(m[1], 10)).toBeLessThanOrEqual(2);
   });
 
+  // Adversarial cases the reviewer flagged — proves the README warnings are
+  // accurate and not theoretical.
+
+  it('CONTROL: plain useState re-renders many times for the same self-driven case', async () => {
+    // Same harness as the "does NOT re-render" test above, but with raw
+    // useState instead of useStableState. This proves the bug exists in the
+    // baseline and that useStableState is what's fixing it (rather than the
+    // test methodology accidentally hiding all renders).
+    let lastCount = 0;
+    function Control(): React.JSX.Element {
+      const [, setValue] = React.useState<unknown>({ status: 'ok' });
+      const renders = React.useRef(0);
+      renders.current += 1;
+      lastCount = renders.current;
+      React.useEffect(() => {
+        const id = setInterval(() => setValue({ status: 'ok' }), 10);
+        return () => clearInterval(id);
+      }, []);
+      return <Text>renders={renders.current}</Text>;
+    }
+    const { unmount } = render(<Control />);
+    await delay(150);
+    unmount();
+    // useState would fire many times — at least 5 over 150ms at 10ms intervals.
+    // (We don't expect 15 because of React batching, but well above 2.)
+    expect(lastCount).toBeGreaterThan(5);
+  });
+
+  it('Map payloads silently misbehave with defaultEquals (documents the footgun)', () => {
+    // JSON.stringify(new Map([...])) is "{}" regardless of contents, so two
+    // structurally different Maps incorrectly compare equal. README warns about
+    // this — this test pins the documented behaviour so we notice if it changes.
+    const a = new Map([['x', 1]]);
+    const b = new Map([['y', 999]]);
+    expect(defaultEquals(a, b)).toBe(true);  // false-equal — the documented footgun
+
+    // Custom isEqual fixes it for real users:
+    const mapEqual = <T extends Map<unknown, unknown>>(a: T, b: T) => {
+      if (a.size !== b.size) return false;
+      for (const [k, v] of a) if (b.get(k) !== v) return false;
+      return true;
+    };
+    expect(mapEqual(a, b)).toBe(false);
+    expect(mapEqual(a, new Map([['x', 1]]))).toBe(true);
+  });
+
+  it('Date payloads compare correctly via JSON serialisation', () => {
+    const t = Date.now();
+    expect(defaultEquals(new Date(t), new Date(t))).toBe(true);
+    expect(defaultEquals(new Date(t), new Date(t + 1))).toBe(false);
+  });
+
   it('honours a custom equality function', () => {
     interface Item { id: number; updatedAt: number }
     // Equal if `id` matches — we don't care about updatedAt churn.

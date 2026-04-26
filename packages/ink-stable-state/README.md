@@ -13,8 +13,10 @@ npm install @matthesketh/ink-stable-state
 A common Ink pattern: fetch some data on a timer, dump it into state, render a list.
 
 ```tsx
+interface HealthRow { app: string; ok: boolean }
+
 function useHealth() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<HealthRow[]>([]);
   useInterval(() => {
     fetch('/health').then(setData);  // ← flicker: setState even when nothing changed
   }, 10_000);
@@ -30,7 +32,7 @@ React doesn't know your two arrays are structurally equal — it sees a new refe
 import { useStableState } from '@matthesketh/ink-stable-state';
 
 function useHealth() {
-  const [data, setData] = useStableState([]);
+  const [data, setData] = useStableState<HealthRow[]>([]);
   useInterval(() => {
     fetch('/health').then(setData);  // ← same value? skipped. Different? re-render.
   }, 10_000);
@@ -57,12 +59,14 @@ Returns `[value, setValue]` — exactly like `useState`. `setValue` accepts eith
 
 ### `defaultEquals<T>(a, b)`
 
-JSON-stringify comparison with safe fallbacks:
+JSON-stringify comparison with the following semantics:
 
 - `Object.is` short-circuit for identical references and primitives.
-- `null` / `undefined` handled correctly.
+- `null` / `undefined` handled correctly (asymmetric → not equal).
 - `JSON.stringify` for everything else.
-- Returns `false` if stringify throws (e.g. cyclic structures) — caller still gets correctness, just no memoisation benefit.
+- **Cyclic structures**: `JSON.stringify` throws → `defaultEquals` returns `false` → every update is treated as a change (no memoisation benefit, but correctness is preserved). **Pass a custom `isEqual` if you care about memoising cyclic data.**
+- **`Map`, `Set`, `RegExp`, class instances**: `JSON.stringify` doesn't faithfully represent these types. Two structurally different `Map`s both stringify to `"{}"` and would be incorrectly treated as equal — meaning the UI would silently miss the update. **Always pass a custom `isEqual` for these types.**
+- **`Date`**: ISO-string serialised, so two `Date`s pointing at the same millisecond compare equal. Different millisecond → not equal. Works as expected.
 
 Exported separately so you can compose:
 
@@ -79,11 +83,26 @@ const equalIgnoringTimestamp = (a, b) =>
 - ✅ Subscription handlers where the source emits redundant updates.
 - ✅ Any place you'd reach for `useMemo` + `useState` together to dodge re-renders.
 
-## When NOT to use it
+## When NOT to use it (or use with a custom `isEqual`)
 
 - ❌ State that changes every render anyway (e.g. animation frames). Equality check overhead is wasted.
-- ❌ State containing functions, class instances, or anything else `JSON.stringify` can't faithfully represent — provide your own `isEqual` instead.
+- ❌ **State containing `Map`, `Set`, `RegExp`, class instances, or functions** — `JSON.stringify` doesn't faithfully represent these. Without a custom `isEqual`, `defaultEquals` will give wrong answers (treating distinct values as equal and dropping updates).
+- ❌ Cyclic structures — they bypass memoisation entirely (always re-render). Pass a custom `isEqual` if you need memoisation of cyclic data.
 - ❌ Massive payloads (multi-MB) where stringify cost exceeds re-render cost. Use a custom shallow `isEqual` instead.
+
+## Mutation warning
+
+Treat values as immutable. If you mutate an array/object in place and pass the same reference to `setValue`, the `Object.is` short-circuit will fire, the mutation will be lost from React's perspective, and your UI will not update. Always create a fresh value:
+
+```ts
+// ❌ silently dropped — same reference, Object.is = true
+const items = state;
+items.push(newRow);
+setItems(items);
+
+// ✅ new reference — actually compared and rendered
+setItems([...state, newRow]);
+```
 
 ## License
 
