@@ -1,6 +1,6 @@
 {
   "name": "@matthesketh/ink-viewport",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Terminal size hook and viewport-aware layout for Ink 5",
   "type": "module",
   "main": "dist/index.js",
