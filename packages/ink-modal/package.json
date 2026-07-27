@@ -1,6 +1,6 @@
 {
   "name": "@matthesketh/ink-modal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Overlay dialog component for Ink 5 apps",
   "type": "module",
   "main": "dist/index.js",
